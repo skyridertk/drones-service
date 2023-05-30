@@ -11,6 +11,7 @@ import com.task.drones.repositories.MedicationRepository;
 import com.task.drones.repositories.ModelRepository;
 import com.task.drones.repositories.StateRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.AllArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,10 +20,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Stream;
 
+@AllArgsConstructor
 @Service
 public class DroneService {
-    public Logger logger = LoggerFactory.getLogger(DroneService.class);
+    public final Logger logger = LoggerFactory.getLogger(DroneService.class);
 
     @Autowired
     private DroneRepository droneRepository;
@@ -36,10 +39,8 @@ public class DroneService {
     @Autowired
     private StateRepository stateRepository;
 
-    @Autowired
-    private ModelMapper modelMapper;
 
-    public MessageResponseDto addDrone(HttpServletRequest request, DroneRequestDto droneRequestDto) {
+    public Drone addDrone(DroneRequestDto droneRequestDto) {
 
         Drone found = droneRepository.findBySerialNumber(droneRequestDto.getSerialNumber());
         if (found != null) {
@@ -76,39 +77,29 @@ public class DroneService {
 
         logger.info("Drone registration request completed");
 
-        MessageResponseDto messageResponseDto = new MessageResponseDto();
-        messageResponseDto.setMessage("Drone with serial number " + savedDrone.getSerialNumber() + " successfully registered");
-        messageResponseDto.setCode(HttpStatus.OK.value());
-
-        return modelMapper.map(messageResponseDto, MessageResponseDto.class);
+        return savedDrone;
     }
 
-    public MedicationResponseDto createMedication(HttpServletRequest request, MedicationRequestDto medicationRequestDto) throws Exception {
-        try {
-            Medication medication = new Medication();
+    public Medication createMedication(MedicationRequestDto medicationRequestDto){
+        Medication medication = new Medication();
 
-            if (!medicationRequestDto.getCode().matches("^[A-Z0-9_]*$")) {
-                throw new Exception("Medication code can only contain upper case letters, numbers and ‘_’");
-            }
-
-            if (!medicationRequestDto.getName().matches("^[a-zA-Z0-9_-]*$")) {
-                throw new Exception("Medication code can only contain letters, numbers, ‘-‘, ‘_’");
-            }
-
-            medication.setCode(medicationRequestDto.getCode());
-            medication.setName(medicationRequestDto.getName());
-            medication.setWeight(medicationRequestDto.getWeight());
-            medication.setImage(medicationRequestDto.getImage());
-
-            Medication savedMedication = medicationRepository.save(medication);
-
-            return modelMapper.map(savedMedication, MedicationResponseDto.class);
-        } catch (Exception e) {
-            throw new Exception(e.getLocalizedMessage());
+        if (!medicationRequestDto.getCode().matches("^[A-Z0-9_]*$")) {
+            throw new CustomException("Medication code can only contain upper case letters, numbers and ‘_’", HttpStatus.BAD_REQUEST);
         }
+
+        if (!medicationRequestDto.getName().matches("^[a-zA-Z0-9_-]*$")) {
+            throw new CustomException("Medication code can only contain letters, numbers, ‘-‘, ‘_’", HttpStatus.BAD_REQUEST);
+        }
+
+        medication.setCode(medicationRequestDto.getCode());
+        medication.setName(medicationRequestDto.getName());
+        medication.setWeight(medicationRequestDto.getWeight());
+        medication.setImage(medicationRequestDto.getImage());
+
+        return medicationRepository.save(medication);
     }
 
-    public MessageResponseDto load(HttpServletRequest request, LoadDroneRequestDto loadDroneRequestDto) {
+    public Boolean load(LoadDroneRequestDto loadDroneRequestDto) {
 
         Drone drone = droneRepository.findBySerialNumber(loadDroneRequestDto.getSerialNumber());
         logger.info("Drone found: " + drone);
@@ -152,14 +143,10 @@ public class DroneService {
         medication.setDrone(drone);
         medicationRepository.save(medication);
 
-        MessageResponseDto responseDto = new MessageResponseDto();
-        responseDto.setMessage("Medication successfully loaded");
-        responseDto.setCode(HttpStatus.OK.value());
-
-        return modelMapper.map(responseDto, MessageResponseDto.class);
+        return true;
     }
 
-    public MessageResponsePayloadDto batteryLevel(HttpServletRequest request, String serial) {
+    public Double batteryLevel(String serial) {
         logger.info("Battery level request received for drone with serial number " + serial);
         Drone drone = droneRepository.findBySerialNumber(serial);
 
@@ -167,15 +154,10 @@ public class DroneService {
             throw new CustomException("Drone not found", HttpStatus.BAD_REQUEST);
         }
 
-        MessageResponsePayloadDto responseDto = new MessageResponsePayloadDto();
-        responseDto.setMessage("Battery level for drone with serial number " + serial);
-        responseDto.setCode(HttpStatus.OK.value());
-        responseDto.setPayload(drone.getBatteryCapacity());
-
-        return modelMapper.map(responseDto, MessageResponsePayloadDto.class);
+        return drone.getBatteryCapacity();
     }
 
-    public MessageResponsePayloadDto availableDrones(HttpServletRequest request) {
+    public Stream<Drone> availableDrones() {
 
         State state = stateRepository.findByName("IDLE");
         List<Drone> drone = droneRepository.findAllByState(state);
@@ -183,20 +165,12 @@ public class DroneService {
             throw new CustomException("No drones available", HttpStatus.BAD_REQUEST);
         }
 
-        List<DroneResponseDto> listOfDrones = drone
-                .stream()
-                .filter(drone1 -> drone1.getBatteryCapacity() >= 25)
-                .map(drone1 -> modelMapper.map(drone1, DroneResponseDto.class)).toList();
-
-        MessageResponsePayloadDto responseDto = new MessageResponsePayloadDto();
-        responseDto.setMessage("Success");
-        responseDto.setCode(HttpStatus.OK.value());
-        responseDto.setPayload(listOfDrones);
-        return modelMapper.map(responseDto, MessageResponsePayloadDto.class);
+        return drone.stream()
+                .filter(drone1 -> drone1.getBatteryCapacity() >= 25);
 
     }
 
-    public MessageResponsePayloadDto checkLoadedMedicationDrone(HttpServletRequest request, String serial) {
+    public List<Medication> checkDronesPayload(String serial) {
 
         Drone drone = droneRepository.findBySerialNumber(serial);
 
@@ -204,17 +178,7 @@ public class DroneService {
             throw new CustomException("Drone not found", HttpStatus.BAD_REQUEST);
         }
 
-        List<Medication> medications = medicationRepository.findAllByDrone(drone);
-        List<MedicationResponseDto> listOfMedications = medications
-                .stream()
-                .map(medication -> modelMapper.map(medication, MedicationResponseDto.class)).toList();
-
-        MessageResponsePayloadDto responseDto = new MessageResponsePayloadDto();
-        responseDto.setMessage("Success");
-        responseDto.setCode(HttpStatus.OK.value());
-        responseDto.setPayload(listOfMedications);
-
-        return modelMapper.map(responseDto, MessageResponsePayloadDto.class);
+        return medicationRepository.findAllByDrone(drone);
 
     }
 }

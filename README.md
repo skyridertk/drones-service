@@ -91,6 +91,7 @@ While implementing your solution **please take care of the following r
 - IntelliJ IDEA
 - Insomnia REST
 - Postgres 13
+- Spring boot
 
 
 ### Get Started
@@ -113,13 +114,18 @@ mvnw clean install
 
 4. Startup Spring
 ```bash
-mvn spring-boot:run
+mvnw spring-boot:run
 ```
 
 Success. Application is now available on
 
 > http://localhost:8081/api
 
+
+6. Optional run tests
+```bash
+mvnw test
+```
 
 ## Available routes
 - POST /drones/register
@@ -141,7 +147,7 @@ curl --request POST \
   --url http://localhost:8081/api/drones/load \
   --header 'Content-Type: application/json' \
   --data '{
-	"serialNumber": "DRN0011",
+	"serialNumber": "DRN0013",
 	"medicationCode": "HYDROCO"
 }'
 ```
