@@ -64,7 +64,7 @@ public class DroneController {
         return modelMapper.map(responseDto, MessageResponseDto.class);
     }
 
-    @GetMapping("/payload")
+    @GetMapping("/check-load")
     public MessageResponsePayloadDto dronesPayload(HttpServletRequest request, @RequestParam("serial") Optional<String> serial) {
         List<Medication> medications =  droneService.checkDronesPayload(serial.orElse(null));
 
