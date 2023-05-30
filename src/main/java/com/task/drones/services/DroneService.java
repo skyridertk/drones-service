@@ -157,16 +157,15 @@ public class DroneService {
         return drone.getBatteryCapacity();
     }
 
-    public Stream<Drone> availableDrones() {
+    public List<Drone> availableDrones() {
 
         State state = stateRepository.findByName("IDLE");
-        List<Drone> drone = droneRepository.findAllByState(state);
-        if (drone.size() == 0){
+        List<Drone> drones = droneRepository.findAllByState(state);
+        if (drones.size() == 0){
             throw new CustomException("No drones available", HttpStatus.BAD_REQUEST);
         }
 
-        return drone.stream()
-                .filter(drone1 -> drone1.getBatteryCapacity() >= 25);
+        return drones;
 
     }
 

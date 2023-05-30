@@ -82,10 +82,11 @@ public class DroneController {
 
     @GetMapping("/check-available")
     public MessageResponsePayloadDto checkAvailableDrones(HttpServletRequest request) {
-        Stream<Drone> drones =  droneService.availableDrones();
+        List<Drone> drones =  droneService.availableDrones();
 
-        List<DroneResponseDto> listOfDrones =
-                drones
+        List<DroneResponseDto> listOfDrones = drones
+                .stream()
+                .filter(drone1 -> drone1.getBatteryCapacity() >= 25)
                 .map(drone1 -> modelMapper.map(drone1, DroneResponseDto.class)).toList();
 
         MessageResponsePayloadDto responseDto = new MessageResponsePayloadDto();
